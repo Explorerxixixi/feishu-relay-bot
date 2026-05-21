@@ -1,0 +1,56 @@
+# 单 bot 示例配置
+#
+# 启动:
+#   export UPSTREAM_API_KEY=sk-xxx
+#   export FEISHU_APP_SECRET=xxx
+#   feishu-relay-bot run --config examples/config.example.yaml
+
+upstream:
+  base_url: ${UPSTREAM_BASE_URL:-http://localhost:8800}
+  api_key: ${UPSTREAM_API_KEY}
+  timeout_s: 240
+  default_max_tokens: 4096
+
+# 模型白名单（对外暴露 + 上游路由）
+models:
+  - public: claude-opus-4-7
+    upstream: claude-opus-4-7
+    endpoint: messages
+
+  - public: claude-opus-4-6
+    upstream: claude-opus-4-6
+    endpoint: messages
+
+  - public: claude-sonnet-4-6
+    upstream: claude-sonnet-4-6
+    endpoint: messages
+
+  - public: gpt-5-5
+    upstream: gpt-5.5
+    endpoint: responses
+
+  - public: gpt-5-4
+    upstream: gpt-5.4
+    endpoint: responses
+
+  - public: kimi-2.6
+    upstream: kimi-k2.6
+    endpoint: chat
+
+  - public: glm-5.1
+    upstream: glm-5.1
+    endpoint: chat
+
+# Bot 列表（一进程能跑多个）
+bots:
+  - name: my-bot
+    app_id: ${FEISHU_APP_ID:-cli_xxx}
+    app_secret: ${FEISHU_APP_SECRET}
+    enabled: true
+
+logging:
+  level: ${LOG_LEVEL:-INFO}
+  format: text
+
+runtime:
+  worker_threads: 32

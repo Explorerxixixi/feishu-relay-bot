@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "feishu-relay-bot"
+version = "0.1.0"
+description = "Feishu Bot tunnel for LLM relay — bridge external LLM clients to internal LLM gateway via Feishu IM"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [
+    { name = "Zenwh" },
+]
+keywords = ["feishu", "lark", "llm", "relay", "tunnel", "openai", "anthropic"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Communications :: Chat",
+]
+dependencies = [
+    "lark-oapi>=1.4",
+    "httpx>=0.25",
+    "pyyaml>=6.0",
+    "pydantic>=2.0",
+]
+
+[project.optional-dependencies]
+xpage_mock = [
+    "fastapi>=0.100",
+    "uvicorn>=0.23",
+]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.21",
+    "ruff>=0.1",
+    "build",
+    "twine",
+]
+
+[project.urls]
+Homepage = "https://github.com/Zenwh/feishu-relay-bot"
+Repository = "https://github.com/Zenwh/feishu-relay-bot"
+Issues = "https://github.com/Zenwh/feishu-relay-bot/issues"
+
+[project.scripts]
+feishu-relay-bot = "feishu_relay_bot.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["feishu_relay_bot*", "xpage_mock*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

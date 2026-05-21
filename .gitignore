@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+*.egg
+
+# 编辑器
+.DS_Store
+.vscode/
+.idea/
+
+# 日志/状态
+*.log
+config.yaml      # 用户自己的 config（examples/config.example.yaml 不忽略）
+.env
+
+# 测试
+.pytest_cache/
+.coverage
+htmlcov/

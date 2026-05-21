@@ -1,0 +1,40 @@
+version: "3.8"
+
+services:
+  bot:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: feishu-relay-bot:0.1.0
+    restart: unless-stopped
+    volumes:
+      - ./config.example.yaml:/etc/feishu-relay-bot/config.yaml:ro
+      - bot-logs:/var/log/feishu-relay-bot
+    environment:
+      - LOG_LEVEL=INFO
+      - UPSTREAM_API_KEY=${UPSTREAM_API_KEY}
+      - FEISHU_APP_ID=${FEISHU_APP_ID}
+      - FEISHU_APP_SECRET=${FEISHU_APP_SECRET}
+    healthcheck:
+      test: ["CMD", "feishu-relay-bot", "check", "-q"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # 可选：本地起一个 xpage mock 用于联调
+  xpage-mock:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: feishu-relay-bot:0.1.0
+    restart: unless-stopped
+    command: ["python", "-m", "uvicorn", "xpage_mock.server:app", "--host", "0.0.0.0", "--port", "8800"]
+    environment:
+      - UPSTREAM_MP_BASE=${UPSTREAM_MP_BASE:-https://models-proxy.stepfun-inc.com}
+      - UPSTREAM_MP_KEY=${UPSTREAM_MP_KEY}
+      - XPAGE_LISTEN_KEYS=${UPSTREAM_API_KEY}
+    ports:
+      - "8800:8800"
+
+volumes:
+  bot-logs:
