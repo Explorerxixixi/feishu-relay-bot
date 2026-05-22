@@ -77,21 +77,45 @@ class Bot:
         )
 
         self._thread: Optional[threading.Thread] = None
+        self._reconnect_enabled = True
+        self._max_backoff_s = 60
 
     # ---- 启停 ---------------------------------------------------------------
 
     def start(self) -> None:
-        """启动 ws，子线程阻塞跑。"""
+        """启动 ws，子线程阻塞跑（带自动重连）。"""
         if self._thread and self._thread.is_alive():
             self.logger.warning("already running")
             return
         self.logger.info("starting bot %s app_id=%s", self.cfg.name, self.cfg.app_id)
+        self._reconnect_enabled = True
         self._thread = threading.Thread(
-            target=self._ws_client.start,
+            target=self._ws_loop,
             name=f"ws-{self.cfg.name}",
             daemon=True,
         )
         self._thread.start()
+
+    def stop(self) -> None:
+        """停止 bot，禁止重连。"""
+        self._reconnect_enabled = False
+
+    def _ws_loop(self) -> None:
+        """ws 连接循环：断线后指数退避重连。"""
+        import time
+        backoff = 5
+        while self._reconnect_enabled:
+            try:
+                self.logger.info("ws connecting...")
+                self._ws_client.start()
+            except Exception as e:
+                self.logger.warning("ws connection error: %s", e)
+            if not self._reconnect_enabled:
+                break
+            self.logger.warning("ws disconnected, reconnecting in %ds...", backoff)
+            time.sleep(backoff)
+            backoff = min(backoff * 2, self._max_backoff_s)
+        self.logger.info("ws loop exited")
 
     def is_alive(self) -> bool:
         return bool(self._thread and self._thread.is_alive())

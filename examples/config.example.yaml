@@ -4,6 +4,9 @@
 #   export UPSTREAM_API_KEY=sk-xxx
 #   export FEISHU_APP_SECRET=xxx
 #   feishu-relay-bot run --config examples/config.example.yaml
+#
+# ⚠️ 多节点部署时，每个节点必须使用独立的飞书 App（不同 app_id/app_secret），
+#    否则消息通道共享会导致串扰。详见 docs/MULTI-NODE.md
 
 upstream:
   base_url: ${UPSTREAM_BASE_URL:-http://localhost:8800}
@@ -54,3 +57,10 @@ logging:
 
 runtime:
   worker_threads: 32
+
+# 心跳上报中心（可选）
+center:
+  enabled: true
+  url: ${CENTER_URL:-}
+  node_id: ${NODE_ID:-auto}    # 'auto' 自动生成，多节点时建议手动指定
+  interval_s: 30

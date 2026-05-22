@@ -143,6 +143,8 @@ class BotManager:
                 if dead:
                     logger.warning("bot(s) not alive: %s", dead)
         finally:
+            for bot in self._bots:
+                bot.stop()
             if self._heartbeat:
                 logger.info("stopping heartbeat, sending offline...")
                 self._heartbeat.stop(send_offline=True)
