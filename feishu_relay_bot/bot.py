@@ -79,6 +79,7 @@ class Bot:
         self._thread: Optional[threading.Thread] = None
         self._reconnect_enabled = True
         self._max_backoff_s = 60
+        self._chat_id: Optional[str] = cfg.chat_id or None
 
     # ---- 启停 ---------------------------------------------------------------
 
@@ -158,6 +159,11 @@ class Bot:
             return
         raw_text = content.get("text", "")
         chat_id = msg.chat_id
+
+        # 记住 chat_id（后续心跳上报用）
+        if chat_id and not self._chat_id:
+            self._chat_id = chat_id
+            self.logger.info("discovered chat_id=%s", chat_id)
 
         # 先尝试 codec 解码（兼容压缩和非压缩格式）
         try:

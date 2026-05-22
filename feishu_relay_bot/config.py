@@ -48,6 +48,7 @@ class BotConfig(BaseModel):
     app_id: str = Field(..., description="飞书 app ID")
     app_secret: str = Field(..., description="飞书 app secret")
     enabled: bool = Field(True, description="是否启用此 bot")
+    chat_id: str = Field("", description="P2P 会话 ID（可选，省略时从首条消息自动获取）")
     upstream: Optional[UpstreamConfig] = Field(
         None,
         description="可选的 upstream 覆盖。省略则用全局 upstream。",

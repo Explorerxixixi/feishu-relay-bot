@@ -91,6 +91,7 @@ class BotManager:
             bots_info.append({
                 "name": b.cfg.name,
                 "app_id": b.cfg.app_id,
+                "chat_id": b._chat_id or "",
                 "alive": b.is_alive(),
                 "stats": s,
             })
