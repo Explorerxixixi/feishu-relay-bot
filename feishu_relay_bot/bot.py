@@ -33,9 +33,11 @@ class Bot:
         cfg: BotConfig,
         upstream: UpstreamClient,
         worker_threads: int = 32,
+        node_id: str = "",
     ):
         self.cfg = cfg
         self.upstream = upstream
+        self.node_id = node_id or cfg.name
         self.logger = logging.getLogger(f"bot.{cfg.name}")
         self._executor = ThreadPoolExecutor(
             max_workers=worker_threads,
@@ -135,15 +137,14 @@ class Bot:
 
         # 先尝试 codec 解码（兼容压缩和非压缩格式）
         try:
-            req = codec_decode(raw_text) if raw_text else None
+            decoded = codec_decode(raw_text) if raw_text else None
         except Exception:
-            req = parse_request(raw_text)
+            decoded = None
 
-        if not isinstance(req, dict) or req.get("_relay_v") is None:
-            req = parse_request(raw_text)
-        if req is None:
+        if not isinstance(decoded, dict) or decoded.get("_relay_v") is None:
             self.logger.debug("ignore non-relay msg: %.60s", raw_text)
             return
+        req = decoded
 
         # 管控指令路由
         if req.get("type") == "ctrl":
@@ -174,7 +175,7 @@ class Bot:
         except Exception as e:
             self.logger.exception("处理 req_id=%s 异常", req_id)
             self._reply_json(chat_id, make_error_response(
-                req_id, 500, "bot_exception", f"{type(e).__name__}: {e}",
+                req_id, self.node_id, 500, "bot_exception", f"{type(e).__name__}: {e}",
             ))
 
     def _handle_chat(self, req: dict, chat_id: str) -> None:
@@ -185,7 +186,7 @@ class Bot:
 
         if not self.upstream.models.is_supported(model):
             self._reply_json(chat_id, make_error_response(
-                req_id, 400, "unsupported_model",
+                req_id, self.node_id, 400, "unsupported_model",
                 f"unsupported model: {model}",
             ))
             return
@@ -205,6 +206,7 @@ class Bot:
             )
             self._reply_json(chat_id, make_success_response(
                 req_id,
+                node_id=self.node_id,
                 content=resp["content"],
                 usage=resp["usage"],
                 finish_reason=resp["finish_reason"],
@@ -217,6 +219,7 @@ class Bot:
             )
             self._reply_json(chat_id, make_error_response(
                 req_id,
+                self.node_id,
                 status if status >= 400 else 502,
                 "upstream_error",
                 err_msg,
@@ -228,7 +231,7 @@ class Bot:
         # 把 relay 协议字段拿掉，剩下就是 Anthropic body
         payload = {
             k: v for k, v in req.items()
-            if k not in ("_relay_v", "req_id", "mode")
+            if k not in ("_relay_v", "req_id", "mode", "type", "endpoint")
         }
 
         status, resp = self.upstream.call_messages_native(payload)
@@ -240,7 +243,7 @@ class Bot:
                 tokens_in=usage.get("input_tokens", 0),
                 tokens_out=usage.get("output_tokens", 0),
             )
-            self._reply_json(chat_id, make_native_success_response(req_id, resp))
+            self._reply_json(chat_id, make_native_success_response(req_id, self.node_id, resp))
         else:
             self._record_request(ok=False)
             err_msg = (
@@ -250,6 +253,7 @@ class Bot:
             )
             self._reply_json(chat_id, make_error_response(
                 req_id,
+                self.node_id,
                 status if status >= 400 else 502,
                 "upstream_error",
                 err_msg,

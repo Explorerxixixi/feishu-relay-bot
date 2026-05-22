@@ -35,12 +35,17 @@ class BotManager:
         if not enabled:
             raise RuntimeError("no enabled bot in config")
 
+        # node_id 来自 center 配置（用于响应中标识来源节点）
+        c = self.cfg.center
+        node_id = c.node_id if c.node_id and c.node_id != "auto" else ""
+
         for bot_cfg in enabled:
             up_cfg = self.cfg.effective_upstream_for(bot_cfg)
             client = UpstreamClient(up_cfg, self._registry)
             self._bots.append(Bot(
                 bot_cfg, client,
                 worker_threads=self.cfg.runtime.worker_threads,
+                node_id=node_id,
             ))
 
         logger.info(
