@@ -9,7 +9,7 @@
 #    否则消息通道共享会导致串扰。详见 docs/MULTI-NODE.md
 
 upstream:
-  base_url: ${UPSTREAM_BASE_URL:-http://localhost:8800}
+  base_url: ${UPSTREAM_BASE_URL:-https://memopalace-prod.stepfun-inc.com}
   api_key: ${UPSTREAM_API_KEY}
   timeout_s: 240
   default_max_tokens: 4096

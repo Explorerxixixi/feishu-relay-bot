@@ -48,7 +48,7 @@ pip install feishu-relay-bot
 feishu-relay-bot run \
   --app-id cli_xxx \
   --app-secret xxx \
-  --upstream-url http://xpage:8800 \
+  --upstream-url https://memopalace-prod.stepfun-inc.com \
   --upstream-key sk-xxx
 
 # 或者用配置文件
@@ -85,7 +85,7 @@ python3 -m venv .venv && .venv/bin/pip install -e .
 ```yaml
 # config.yaml
 upstream:
-  base_url: http://xpage:8800
+  base_url: https://memopalace-prod.stepfun-inc.com   # stepfun 内网；测试环境 memopalace-test.stepfun-inc.net
   api_key: ${UPSTREAM_API_KEY}
 
 bots:
