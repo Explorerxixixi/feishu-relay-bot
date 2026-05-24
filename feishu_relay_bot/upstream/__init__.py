@@ -11,6 +11,7 @@ Upstream LLM client.
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any, Dict, Optional, Tuple
 
 import httpx
@@ -58,13 +59,33 @@ class UpstreamClient:
         }
         if extra_headers:
             headers.update(extra_headers)
-        with httpx.Client(timeout=self._cfg.timeout_s) as cli:
-            r = cli.post(url, json=payload, headers=headers)
-        try:
-            data = r.json()
-        except Exception:
-            data = {"raw": r.text[:500]}
-        return r.status_code, data
+
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                with httpx.Client(timeout=self._cfg.timeout_s) as cli:
+                    r = cli.post(url, json=payload, headers=headers)
+                try:
+                    data = r.json()
+                except Exception:
+                    data = {"raw": r.text[:500]}
+                # 5xx 视为可重试；4xx（除 429）视为客户端错误不重试
+                if 500 <= r.status_code < 600 and attempt < max_retries - 1:
+                    sleep_s = 2 ** attempt
+                    logger.warning("upstream %d, retry in %.1fs (attempt %d/%d)", r.status_code, sleep_s, attempt + 1, max_retries)
+                    time.sleep(sleep_s)
+                    continue
+                return r.status_code, data
+            except (httpx.NetworkError, httpx.TimeoutException) as e:
+                if attempt < max_retries - 1:
+                    sleep_s = 2 ** attempt
+                    logger.warning("upstream network error %s, retry in %.1fs (attempt %d/%d)", e, sleep_s, attempt + 1, max_retries)
+                    time.sleep(sleep_s)
+                    continue
+                logger.error("upstream exhausted after %d attempts: %s", max_retries, e)
+                return 503, {"error": "upstream_unavailable", "message": str(e)}
+        # unreachable in practice, but keeps type checker happy
+        return 503, {"error": "upstream_unavailable", "message": "max retries exceeded"}
 
     def _try_post(
         self,

@@ -15,6 +15,7 @@ import os
 import re
 import subprocess
 import sys
+import urllib.error
 import urllib.request
 from urllib.parse import urlparse
 
@@ -44,9 +45,8 @@ def _validate_version(version: str) -> bool:
 
 
 def _hostname_is_github(url: str) -> bool:
-    """Return True only when the actual response origin is github.com or
-    a known-github CDN sub-domain.  urllib follows redirects transparently,
-    so we must inspect the final URL after urlopen has settled."""
+    """Return True only when the URL origin is github.com or
+    a known-github CDN sub-domain."""
     try:
         parsed = urlparse(url)
         host = (parsed.hostname or "").lower()
@@ -55,6 +55,17 @@ def _hostname_is_github(url: str) -> bool:
         return host == "github.com" or host.endswith(".githubusercontent.com")
     except Exception:
         return False
+
+
+class _SafeRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """拦截重定向：每次跳转前检查目标域名是否在 github 白名单。"""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        if not _hostname_is_github(newurl):
+            raise ValueError(
+                f"拒绝重定向到非 github 地址: {newurl}"
+            )
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
 def _resolve_wheel_url(version: str, repo: str) -> str | None:
@@ -89,14 +100,12 @@ def _resolve_wheel_url(version: str, repo: str) -> str | None:
 
 def _download_with_limit(url: str) -> bytes:
     """下载文件并限制大小。"""
+    if not _hostname_is_github(url):
+        raise ValueError(f"拒绝下载：初始 URL 非 github.com 子域 ({url})")
     req = urllib.request.Request(url, headers={"Accept": "application/octet-stream"})
+    safe_opener = urllib.request.build_opener(_SafeRedirectHandler)
     data = b""
-    with urllib.request.urlopen(req, timeout=120) as resp:
-        final_url = resp.url
-        if not _hostname_is_github(final_url):
-            raise ValueError(
-                f"拒绝下载：实际源站非 github.com 子域 ({final_url})"
-            )
+    with safe_opener.open(req, timeout=120) as resp:
         while True:
             chunk = resp.read(64 * 1024)
             if not chunk:

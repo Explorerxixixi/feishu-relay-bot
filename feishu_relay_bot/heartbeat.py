@@ -136,6 +136,7 @@ class HeartbeatClient:
             "started_at": self._started_at,
             "status": "online",
             "capabilities": ["zlib"],
+            "timestamp": int(time.time()),
         }
         try:
             extra = self.payload_fn() or {}
@@ -149,7 +150,13 @@ class HeartbeatClient:
         body = self._build_payload()
         headers = {"Content-Type": "application/json"}
         if self.shared_secret:
-            headers["X-Agent-Secret"] = self.shared_secret
+            import hashlib
+            import hmac
+            payload_bytes = json.dumps(body, sort_keys=True, separators=(",", ":")).encode()
+            digest = hmac.new(
+                self.shared_secret.encode("utf-8"), payload_bytes, hashlib.sha256,
+            ).hexdigest()
+            headers["X-Agent-Secret"] = digest
         with httpx.Client(timeout=10) as cli:
             r = cli.post(url, json=body, headers=headers)
         if r.status_code != 200:
@@ -162,6 +169,16 @@ class HeartbeatClient:
 
     def _post_offline(self) -> None:
         url = f"{self.center_url}/agent/offline"
+        body = {"node_id": self.node_id, "timestamp": int(time.time())}
+        headers = {"Content-Type": "application/json"}
+        if self.shared_secret:
+            import hashlib
+            import hmac
+            payload_bytes = json.dumps(body, sort_keys=True, separators=(",", ":")).encode()
+            digest = hmac.new(
+                self.shared_secret.encode("utf-8"), payload_bytes, hashlib.sha256,
+            ).hexdigest()
+            headers["X-Agent-Secret"] = digest
         with httpx.Client(timeout=5) as cli:
-            r = cli.post(url, json={"node_id": self.node_id})
+            r = cli.post(url, json=body, headers=headers)
         logger.info("offline notify: HTTP %d", r.status_code)
