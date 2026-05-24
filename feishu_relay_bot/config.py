@@ -10,9 +10,11 @@ env 也可以直接覆盖某些值（看 ENV_OVERRIDES）。
 """
 from __future__ import annotations
 
+import ipaddress
 import logging
 import os
 import re
+import urllib.parse
 from pathlib import Path
 from typing import List, Optional
 
@@ -22,6 +24,42 @@ from pydantic import BaseModel, Field, field_validator
 from .models import DEFAULT_MODELS, ModelEntry
 
 logger = logging.getLogger("config")
+_BLOCKED_NETS = [
+    ipaddress.ip_network("0.0.0.0/8"),
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("100.64.0.0/10"),
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("169.254.0.0/16"),      # AWS/GCP IMDS, link-local
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.0.0.0/24"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("198.18.0.0/15"),
+    ipaddress.ip_network("::1/128"),
+    ipaddress.ip_network("fc00::/7"),
+    ipaddress.ip_network("fe80::/10"),
+]
+
+_BLOCKED_HOSTS = {"localhost"}
+
+
+def _is_safe_url(url: str) -> bool:
+    """Return True when *url* resolves to an external, routable host."""
+    if os.environ.get("FEISHU_BOT_ALLOW_LOCAL") == "1":
+        return True
+    try:
+        parsed = urllib.parse.urlparse(url)
+    except Exception:
+        return False
+    host = (parsed.hostname or "").strip("[]").lower()
+    if not host:
+        return False
+    if host in _BLOCKED_HOSTS:
+        return False
+    try:
+        addr = ipaddress.ip_address(host)
+    except ValueError:
+        return True   # domain name – let DNS / TLS do their job
+    return not any(addr in net for net in _BLOCKED_NETS)
 
 
 # ============================================================================
@@ -38,8 +76,13 @@ class UpstreamConfig(BaseModel):
 
     @field_validator("base_url")
     @classmethod
-    def _strip_trailing_slash(cls, v: str) -> str:
-        return v.rstrip("/")
+    def _strip_and_check_url(cls, v: str) -> str:
+        v = v.rstrip("/")
+        if not _is_safe_url(v):
+            raise ValueError(
+                f"base_url 不能指向内网 / 回环 / 链路本地地址: {v}"
+            )
+        return v
 
 
 class BotConfig(BaseModel):
@@ -74,6 +117,15 @@ class CenterConfig(BaseModel):
     node_id: str = Field("auto", description="节点唯一 ID。'auto' 时自动生成 (hostname-uuid6)")
     shared_secret: str = Field("", description="可选的共享密钥")
     interval_s: int = Field(30, description="心跳间隔（秒）")
+
+    @field_validator("url")
+    @classmethod
+    def _check_center_url(cls, v: str) -> str:
+        if v and not _is_safe_url(v):
+            raise ValueError(
+                f"center.url 不能指向内网 / 回环 / 链路本地地址: {v}"
+            )
+        return v
 
 
 # ============================================================================

@@ -154,8 +154,8 @@ class HeartbeatClient:
             r = cli.post(url, json=body, headers=headers)
         if r.status_code != 200:
             logger.warning(
-                "heartbeat non-200: %d %.200s",
-                r.status_code, r.text,
+                "heartbeat non-200: %d body_len=%d",
+                r.status_code, len(r.content),
             )
         else:
             logger.debug("heartbeat OK")

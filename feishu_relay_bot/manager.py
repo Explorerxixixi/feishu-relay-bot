@@ -119,6 +119,29 @@ class BotManager:
             "stats": agg,
         }
 
+    def _start_local_server(self) -> None:
+        """启动本地 HTTP relay server（供 mock 飞书层直连），随机端口避免冲突。"""
+        try:
+            from .local_server import set_bot, get_app
+            if not self._bots:
+                return
+            set_bot(self._bots[0])
+            import threading
+            import uvicorn
+            import socket
+            # 找一个空闲端口
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.bind(("127.0.0.1", 0))
+            port = s.getsockname()[1]
+            s.close()
+            def run():
+                uvicorn.run(get_app(), host="127.0.0.1", port=port, log_level="warning")
+            t = threading.Thread(target=run, daemon=True)
+            t.start()
+            logger.info("local relay server started on http://127.0.0.1:%d", port)
+        except Exception as e:
+            logger.warning("local relay server failed to start: %s", e)
+
     def run_forever(self) -> None:
         """启动所有 bot + heartbeat，主线程阻塞等信号。"""
         for bot in self._bots:
@@ -126,6 +149,8 @@ class BotManager:
 
         if self._heartbeat:
             self._heartbeat.start()
+
+        self._start_local_server()
 
         logger.info("all bots started, press Ctrl+C to stop")
 

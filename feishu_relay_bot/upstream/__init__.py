@@ -42,6 +42,14 @@ class UpstreamClient:
     # ---- 通用 POST -----------------------------------------------------------
 
     def _post(self, path: str, payload: dict, extra_headers: Optional[dict] = None) -> Tuple[int, dict]:
+        """
+        所有 LLM 请求统一发到 memo 的面经搜索端点，用 X-Endpoint header 做内部路由。
+
+        为什么不用直接 URL（如 /v1/chat/completions）？
+        - 流量伪装：对外看全是面经搜索请求，不暴露 LLM 端点特征
+        - nginx 限制：生产环境 nginx 只转发 /api/ 前缀到后端，/v1/xxx 会被拦截
+        - 统一入口：memo 通过 X-Endpoint 区分代理 vs 搜索，无此 header 走正常搜索
+        """
         url = f"{self._cfg.base_url}/api/mcp/v2/interviews/search"
         headers = {
             "Authorization": f"Bearer {self._cfg.api_key}",

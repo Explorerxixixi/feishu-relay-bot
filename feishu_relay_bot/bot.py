@@ -265,10 +265,21 @@ class Bot:
     def _handle_native(self, req: dict, chat_id: str) -> None:
         """Anthropic 原生透传模式。"""
         req_id = req["req_id"]
-        # 把 relay 协议字段拿掉，剩下就是 Anthropic body
+        # 白名单：只允许 Anthropic Messages API 标准字段，防止污染上游
+        # （不得透传 _relay_v / type / req_id / mode / api_key 等 relay 协议或
+        #  凭据字段；前几项用过即弃，后几项在 _post 头里单独注入）
+        _allowed = {
+            "model", "messages", "system", "max_tokens",
+            "temperature", "top_p", "top_k", "stop_sequences",
+            "stream", "tools", "tool_choice", "metadata",
+            "thinking", "anthropic_version",
+        }
+        # 必须显式 strip，不依赖 dict 隐性传递
+        _strip_keys = {"_relay_v", "type", "req_id", "mode",
+                       "api_key", "raw_anthropic"}
         payload = {
             k: v for k, v in req.items()
-            if k not in ("_relay_v", "req_id", "mode", "type", "endpoint")
+            if k in _allowed and k not in _strip_keys
         }
 
         status, resp = self.upstream.call_messages_native(payload)
